@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ArcGIS Map with Widgets</title>
+    <style>
+        /* 基础页面布局样式 */
+        body {
+            padding: 0;
+            margin: 0;
+            height: 100vh;  /* 使用整个视口高度 */
+            width: 100vw;   /* 使用整个视口宽度 */
+            display: grid;
+            /* 将页面划分为三行布局：页眉、地图区域、底图库区域 */
+            grid-template-rows: auto 1fr auto;
+            grid-template-areas: 
+                "header"
+                "map"
+                "basemap-gallery";
+        }
+        
+        /* 页眉样式 */
+        header {
+            grid-area: header;  /* 指定为header区域 */
+            background-color: #0079c1;  /* ArcGIS品牌蓝色 */
+            color: white;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;  /* 标题和按钮分列两侧 */
+            align-items: center;
+        }
+        
+        /* 地图容器样式 */
+        arcgis-map {
+            grid-area: map;  /* 指定为map区域 */
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* 底图库容器样式 */
+        .basemap-gallery-container {
+            grid-area: basemap-gallery;  /* 指定为basemap-gallery区域 */
+            height: 150px;  /* 固定高度 */
+            padding: 10px;
+            background-color: #f5f5f5;  /* 浅灰色背景 */
+            border-top: 1px solid #ddd;  /* 上边框 */
+        }
+        
+        /* 按钮样式 */
+        calcite-button {
+            margin-right: 10px;  /* 按钮间距 */
+        }
+    </style>
+    <!-- 加载Calcite Design System组件 -->
+    <script type="module" src="https://js.arcgis.com/calcite-components/3.0.3/calcite.esm.js"></script>
+    <!-- 加载ArcGIS API for JavaScript CSS -->
+    <link rel="stylesheet" href="https://js.arcgis.com/4.32/esri/themes/light/main.css" />
+    <!-- 加载ArcGIS API for JavaScript -->
+    <script src="https://js.arcgis.com/4.32/"></script>
+    <!-- 加载ArcGIS Map Components -->
+    <script type="module" src="https://js.arcgis.com/map-components/4.32/arcgis-map-components.esm.js"></script>
+</head>
+<body>
+    <!-- 页眉区域 -->
+    <header>
+        <h1>粤港澳大湾区城市数据地图</h1>
+        <div>
+            <!-- 关于按钮 -->
+            <calcite-button appearance="outline" icon-start="information">关于</calcite-button>
+            <!-- 测量按钮 -->
+            <calcite-button appearance="outline" icon-start="measure">测量</calcite-button>
+        </div>
+    </header>
+    
+    <!-- 主地图区域 -->
+    <arcgis-map item-id="237b9584339446a0b56317b5962a4971">
+        <!-- 搜索微件 - 右上角 -->
+        <arcgis-search position="top-right"></arcgis-search>
+        <!-- 图例微件 - 左下角 -->
+        <arcgis-legend position="bottom-left"></arcgis-legend>
+        <!-- 比例尺微件 - 左下角 -->
+        <arcgis-scale-bar position="bottom-left"></arcgis-scale-bar>
+        <!-- 图层列表微件 - 左上角 -->
+        <arcgis-layer-list position="top-left"></arcgis-layer-list>
+    </arcgis-map>
+    
+    <!-- 底图库区域 -->
+    <div class="basemap-gallery-container">
+        <h3>底图库</h3>
+        <!-- 底图库微件 -->
+        <arcgis-basemap-gallery position="manual"></arcgis-basemap-gallery>
+    </div>
+
+    <script>
+        // 使用RequireJS加载所需的ArcGIS API模块
+        require([
+            "esri/layers/FeatureLayer",  // 要素图层模块
+            "esri/Basemap",              // 底图模块
+            "esri/layers/TileLayer"      // 瓦片图层模块
+        ], (FeatureLayer, Basemap, TileLayer) => {
+            
+            // 获取地图DOM元素
+            const arcgisMap = document.querySelector("arcgis-map");
+            
+            // 监听地图视图准备就绪事件
+            arcgisMap.addEventListener("arcgisViewReadyChange", () => {
+                // 创建粤港澳大湾区城市数据专题图层
+                const citiesLayer = new FeatureLayer({
+                    url: "https://www.geosceneonline.cn/server/rest/services/Hosted/粤港澳大湾区城市数据/FeatureServer/0",
+                    title: "粤港澳大湾区城市"  // 设置图层显示名称
+                });
+                
+                // 创建底图
+                const basemap = new Basemap({
+                    baseLayers: [
+                        new TileLayer({
+                            url: "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer",
+                            title: "World Topographic"  // 底图显示名称
+                        })
+                    ],
+                    title: "Topographic",  // 底图标题
+                    id: "topo"             // 底图ID
+                });
+                
+                // 将专题图层添加到地图
+                arcgisMap.map.add(citiesLayer);
+                // 设置地图底图
+                arcgisMap.map.basemap = basemap;
+                
+                // 初始化底图库微件
+                const basemapGallery = document.querySelector("arcgis-basemap-gallery");
+                basemapGallery.view = arcgisMap.view;
+                
+                // 等待图层加载完成后执行以下操作
+                citiesLayer.when(() => {
+                    console.log("粤港澳大湾区城市数据图层加载完成");
+                    
+                    // 查询图层范围
+                    citiesLayer.queryExtent().then((result) => {
+                        console.log("获取到图层范围:", result.extent);
+                        
+                        // 将视图定位到图层范围，并添加50像素的边距
+                        arcgisMap.view.goTo(result.extent, {
+                            padding: 50,
+                            duration: 1000  // 动画持续时间1秒
+                        }).then(() => {
+                            console.log("视图已定位到图层范围");
+                        }).catch((error) => {
+                            console.error("定位到图层范围失败:", error);
+                            
+                            // 如果自动定位失败，使用默认的粤港澳大湾区中心坐标
+                            arcgisMap.view.goTo({
+                                center: [113.5, 22.3],  // 经度, 纬度
+                                zoom: 8                 // 缩放级别
+                            });
+                        });
+                    }).catch((error) => {
+                        console.error("查询图层范围失败:", error);
+                        
+                        // 如果查询范围失败，使用默认的粤港澳大湾区中心坐标
+                        arcgisMap.view.goTo({
+                            center: [113.5, 22.3],  // 经度, 纬度
+                            zoom: 8                 // 缩放级别
+                        });
+                    });
+                }).catch((error) => {
+                    console.error("图层加载失败:", error);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
